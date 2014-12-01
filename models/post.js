@@ -1,4 +1,5 @@
 var mongodb = require('./db'),
+    settings = require('../settings'),
     markdown = require('markdown').markdown;
 
 function Post(name, title, post) {
@@ -33,21 +34,23 @@ Post.prototype.save = function(callback) {
         if (err) {
             return callback(err);
         }
-        //读取 posts 集合
-        db.collection('posts', function (err, collection) {
-            if (err) {
-                mongodb.close();
-                return callback(err);
-            }
-            //将文档插入 posts 集合
-            collection.insert(post, {
-                safe: true
-            }, function (err) {
-                mongodb.close();
+        db.authenticate(settings.username,settings.password,function(){
+            //读取 posts 集合
+            db.collection('posts', function (err, collection) {
                 if (err) {
-                    return callback(err);//失败！返回 err
+                    mongodb.close();
+                    return callback(err);
                 }
-                callback(null);//返回 err 为 null
+                //将文档插入 posts 集合
+                collection.insert(post, {
+                    safe: true
+                }, function (err) {
+                    mongodb.close();
+                    if (err) {
+                        return callback(err);//失败！返回 err
+                    }
+                    callback(null);//返回 err 为 null
+                });
             });
         });
     });
@@ -60,29 +63,31 @@ Post.getAll = function(name, callback) {
         if (err) {
             return callback(err);
         }
-        //读取 posts 集合
-        db.collection('posts', function(err, collection) {
-            if (err) {
-                mongodb.close();
-                return callback(err);
-            }
-            var query = {};
-            if (name) {
-                query.name = name;
-            }
-            //根据 query 对象查询文章
-            collection.find(query).sort({
-                time: -1
-            }).toArray(function (err, docs) {
-                mongodb.close();
+        db.authenticate(settings.username,settings.password,function(){
+            //读取 posts 集合
+            db.collection('posts', function(err, collection) {
                 if (err) {
-                    return callback(err);//失败！返回 err
+                    mongodb.close();
+                    return callback(err);
                 }
-                //解析 markdown 为 html
-                docs.forEach(function (doc) {
-                    doc.post = markdown.toHTML(doc.post);
+                var query = {};
+                if (name) {
+                    query.name = name;
+                }
+                //根据 query 对象查询文章
+                collection.find(query).sort({
+                    time: -1
+                }).toArray(function (err, docs) {
+                    mongodb.close();
+                    if (err) {
+                        return callback(err);//失败！返回 err
+                    }
+                    //解析 markdown 为 html
+                    docs.forEach(function (doc) {
+                        doc.post = markdown.toHTML(doc.post);
+                    });
+                    callback(null, docs);//成功！以数组形式返回查询的结果
                 });
-                callback(null, docs);//成功！以数组形式返回查询的结果
             });
         });
     });
@@ -95,26 +100,29 @@ Post.getOne = function(name, day, title, callback) {
         if (err) {
             return callback(err);
         }
-        //读取 posts 集合
-        db.collection('posts', function (err, collection) {
-            if (err) {
-                mongodb.close();
-                return callback(err);
-            }
-            //根据用户名、发表日期及文章名进行查询
-            collection.findOne({
-                "name": name,
-                "time.day": day,
-                "title": title
-            }, function (err, doc) {
-                mongodb.close();
+        db.authenticate(settings.username,settings.password,function(){
+            //读取 posts 集合
+            db.collection('posts', function (err, collection) {
                 if (err) {
+                    mongodb.close();
                     return callback(err);
                 }
-                //解析 markdown 为 html
-                doc.post = markdown.toHTML(doc.post);
-                callback(null, doc);//返回查询的一篇文章
+                //根据用户名、发表日期及文章名进行查询
+                collection.findOne({
+                    "name": name,
+                    "time.day": day,
+                    "title": title
+                }, function (err, doc) {
+                    mongodb.close();
+                    if (err) {
+                        return callback(err);
+                    }
+                    //解析 markdown 为 html
+                    doc.post = markdown.toHTML(doc.post);
+                    callback(null, doc);//返回查询的一篇文章
+                });
             });
         });
+
     });
 };
